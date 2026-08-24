@@ -1,6 +1,5 @@
 # cocoapods-source-fix 插件需求梳理
 
-> 原名 `cocoapods-header-fix`。因插件能力不止「头文件修复」（如 YYText 表达式修复），更名 `cocoapods-source-fix`（对 Pod 源码做文本替换修复）。
 > 本文档是**新会话**实现/维护本插件的唯一需求依据。
 
 ---

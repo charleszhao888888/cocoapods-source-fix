@@ -2,8 +2,6 @@
 
 CocoaPods 插件：在 `pod install` 后自动对指定 Pod 的源码/头文件做**文本替换**，用于修复第三方库的编译问题（表达式修复、私有头引入修复、任意文本替换等）。
 
-> 原名 `cocoapods-header-fix` 已废弃——插件能力不止「头文件修复」（如 YYText 是表达式修复），故更名为 `cocoapods-source-fix`（源码文本替换修复）。
-
 ## 特点
 
 - **Podfile 零改动**：通过 monkey-patch `Pod::Installer#install!`（与 `cocoapods-local-override` 相同机制，绕过 HooksManager 白名单），gem 以 `cocoapods-*` 前缀安装后由 CocoaPods 自动加载即生效，**无需在 Podfile 写 `plugin` 指令**
@@ -147,12 +145,12 @@ rules:
 
 ## 文档导航
 
-| 文件 | 说明 |
-|---|---|
-| `REQUIREMENTS.md` | 需求梳理（背景 / 方案 / 验收标准） |
-| `lib/` | 插件实现 |
-| `config.example.yml` | 配置示例（覆盖 6 种目标定位） |
-| `cocoapods-source-fix.gemspec` | gem 定义 |
+| 文件　　　　　　　　　　　　　 | 说明　　　　　　　　　　　　　　　 |
+| --------------------------------| ------------------------------------|
+| `REQUIREMENTS.md`　　　　　　　| 需求梳理（背景 / 方案 / 验收标准） |
+| `lib/`　　　　　　　　　　　　 | 插件实现　　　　　　　　　　　　　 |
+| `config.example.yml`　　　　　 | 配置示例（覆盖 6 种目标定位）　　　|
+| `cocoapods-source-fix.gemspec` | gem 定义　　　　　　　　　　　　　 |
 
 ## 验证
 
