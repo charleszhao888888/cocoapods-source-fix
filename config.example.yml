@@ -25,33 +25,33 @@
 # ============================================================
 
 rules:
-  # ---------- 示例 1：指定 Pod 模块 + 单文件多组替换（迁移自 YYText 表达式修复） ----------
-  - name: YYText 表达式修复
-    pod: YYText
-    glob: 'YYText/Component/YYTextLayout.m'
+  # ---------- 示例 1：指定 Pod 模块 + 单文件多组替换（表达式优先级修复） ----------
+  - name: 表达式优先级修复
+    pod: SomePod
+    glob: 'SomePod/Component/SomeView.m'
     pairs:
-      - from: 'fabs(left - point.y) < fabs(right - point.y) < (right ? prev : next)'
-        to:   '(fabs(left - point.y) < fabs(right - point.y)) == (right ? prev : next)'
-      - from: 'fabs(left - point.x) < fabs(right - point.x) < (right ? prev : next)'
-        to:   '(fabs(left - point.x) < fabs(right - point.x)) == (right ? prev : next)'
+      - from: 'a < b < c'
+        to:   '(a < b) < c'
+      - from: 'x < y < z'
+        to:   '(x < y) < z'
 
-  # ---------- 示例 2：指定 Pod 模块 + 多文件 glob（迁移自 AFNetworking 私有头修复） ----------
-  - name: AFNetworking 私有头修复
-    pod: AFNetworking
-    glob: 'AFNetworking/AF{NetworkReachabilityManager,HTTPSessionManager}.m'
+  # ---------- 示例 2：指定 Pod 模块 + 多文件 glob（私有头引入修复） ----------
+  - name: 私有头引入修复
+    pod: SomePod
+    glob: 'SomePod/Some{Manager,Session}.m'
     from: '#import <netinet6/in6.h>'
     to:   '#include <sys/socket.h>'
 
-  # ---------- 示例 3：指定 Pod 模块 + 目录遍历（迁移自 LFPhoneInfo 头引入修复） ----------
-  - name: LFPhoneInfo 头引入方式修复
-    pod: LFPhoneInfo
+  # ---------- 示例 3：指定 Pod 模块 + 目录遍历（头文件引入方式修复） ----------
+  - name: 头文件引入方式修复
+    pod: SomePod
     glob: '**/*.{h,m,mm,swift}'
-    from: '#import <LFPhoneDefine.h>'
-    to:   '#import "LFPhoneDefine.h"'
-    # 排除示例：不修复 LFPhoneInfo.h 自身（exclude 也可传数组）
-    # exclude: 'LFPhoneInfo/LFPhoneInfo.h'
+    from: '#import <SomeDefine.h>'
+    to:   '#import "SomeDefine.h"'
+    # 排除示例：不修复 SomePod.h 自身（exclude 也可传数组）
+    # exclude: 'SomePod/SomePod.h'
     # 排除整棵目录树：
-    # exclude: 'LFPhoneInfo/Private/**'
+    # exclude: 'SomePod/Private/**'
 
   # ---------- 示例 4：相对 Podfile 文件的目录 ----------
   # - name: 相对目录示例

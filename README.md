@@ -14,20 +14,24 @@ CocoaPods 插件：在 `pod install` 后自动对指定 Pod 的源码/头文件�
 
 ### 方式一：Gemfile（推荐，项目用 `bundle exec pod install` 时）
 
-在项目的 Gemfile 中加：
+gem 已发布到 rubygems.org，在项目的 Gemfile 中加：
+
+```ruby
+gem 'cocoapods-source-fix', '~> 0.1'
+```
+
+然后 `bundle install && bundle exec pod install`。
+
+本地开发调试时可改用本地路径：
 
 ```ruby
 gem 'cocoapods-source-fix', :path => '/path/to/cocoapods-source-fix'
 ```
 
-然后 `bundle install && bundle exec pod install`。
-
 ### 方式二：gem 全局安装（项目直接用 `pod install` 时）
 
 ```bash
-cd '/path/to/cocoapods-source-fix'
-gem build cocoapods-source-fix.gemspec
-gem install cocoapods-source-fix-0.1.0.gem
+gem install cocoapods-source-fix
 ```
 
 之后 `pod install` 自动生效。
@@ -39,14 +43,14 @@ gem install cocoapods-source-fix-0.1.0.gem
 ```yaml
 rules:
   # Pod 模块：glob 相对该 Pod 目录
-  - name: YYText 表达式修复
-    pod: YYText
-    glob: 'YYText/Component/YYTextLayout.m'
+  - name: 表达式优先级修复
+    pod: SomePod
+    glob: 'SomePod/Component/SomeView.m'
     pairs:
-      - from: 'fabs(left - point.y) < fabs(right - point.y) < (right ? prev : next)'
-        to:   '(fabs(left - point.y) < fabs(right - point.y)) == (right ? prev : next)'
-      - from: 'fabs(left - point.x) < fabs(right - point.x) < (right ? prev : next)'
-        to:   '(fabs(left - point.x) < fabs(right - point.x)) == (right ? prev : next)'
+      - from: 'a < b < c'
+        to:   '(a < b) < c'
+      - from: 'x < y < z'
+        to:   '(x < y) < z'
 
   # 相对 Podfile 的目录
   - dir: 'Pods/SomePod'
@@ -94,14 +98,14 @@ rules:
 `exclude` 使用示例：
 
 ```yaml
-- name: LFPhoneInfo 头引入方式修复
-  pod: LFPhoneInfo
+- name: 头文件引入方式修复
+  pod: SomePod
   glob: '**/*.{h,m,mm,swift}'
-  from: '#import <LFPhoneDefine.h>'
-  to:   '#import "LFPhoneDefine.h"'
+  from: '#import <SomeDefine.h>'
+  to:   '#import "SomeDefine.h"'
   exclude:
-    - 'LFPhoneInfo/LFPhoneInfo.h'   # 排除单个文件
-    - 'LFPhoneInfo/Private/**'      # 排除整棵目录树
+    - 'SomePod/SomePod.h'   # 排除单个文件
+    - 'SomePod/Private/**'  # 排除整棵目录树
 ```
 
 ## 日志输出
@@ -111,9 +115,9 @@ rules:
 ```
 🛠️ [cocoapods-source-fix] 使用配置文件：/path/to/cocoapods-source-fix.yml（3 条规则）
 🛠️ [cocoapods-source-fix] patching source files...
-🛠️ [cocoapods-source-fix]   processing rule: YYText 表达式修复
-🛠️ [cocoapods-source-fix]     ✅ 已修复文件：/path/to/Pods/YYText/YYText/Component/YYTextLayout.m
-🛠️ [cocoapods-source-fix]   processing rule: AFNetworking 私有头修复
+🛠️ [cocoapods-source-fix]   processing rule: 表达式优先级修复
+🛠️ [cocoapods-source-fix]     ✅ 已修复文件：/path/to/Pods/SomePod/SomePod/Component/SomeView.m
+🛠️ [cocoapods-source-fix]   processing rule: 私有头引入修复
 🛠️ [cocoapods-source-fix]     ⏭️ 跳过（2 个文件内容已是最新，无需修复）
 🛠️ [cocoapods-source-fix]   processing rule: 某条无匹配的规则
 🛠️ [cocoapods-source-fix]     ⏭️ 跳过（无匹配文件）
@@ -135,8 +139,8 @@ rules:
 默认只输出规则级汇总；配置 `verbose: true`（或环境变量 `COCOAPODS_SOURCE_FIX_VERBOSE=1`）后逐文件输出：
 
 ```
-🛠️ [cocoapods-source-fix]     ⏭️ 已是最新：/path/to/Pods/YYText/YYText/Component/YYTextLayout.m
-🛠️ [cocoapods-source-fix]     🚫 已排除：/path/to/Pods/LFPhoneInfo/LFPhoneInfo/Private/Secret.h
+🛠️ [cocoapods-source-fix]     ⏭️ 已是最新：/path/to/Pods/SomePod/SomePod/Component/SomeView.m
+🛠️ [cocoapods-source-fix]     🚫 已排除：/path/to/Pods/SomePod/SomePod/Private/Secret.h
 ```
 
 - 每个实际发生替换的文件：`✅ 已修复文件：<path>`

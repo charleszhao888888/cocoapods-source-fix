@@ -4,7 +4,7 @@ module CocoapodsSourceFix
   # 单条替换规则
   #
   # 目标定位（互斥，均不指定则为全局）：
-  #   pod:   'YYText'          → 定位到 installer.sandbox.pod_dir('YYText')，glob 相对该 Pod 目录
+  #   pod:   'SomePod'        → 定位到 installer.sandbox.pod_dir('SomePod')，glob 相对该 Pod 目录
   #   dir:   'path'            → 目录，路径绝对则直接使用，相对则相对 Podfile 目录
   #   file:  'path'            → 文件，路径绝对则直接使用，相对则相对 Podfile 目录
   #   （无以上字段）           → 全局，glob 相对 Podfile 目录（如 'Pods/**/*.{h,m}'）

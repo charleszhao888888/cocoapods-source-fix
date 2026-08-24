@@ -1,16 +1,45 @@
 # cocoapods-source-fix 插件需求梳理
 
-> 本文档是**新会话**实现/维护本插件的唯一需求依据。
+> 本文档记录插件的背景、方案与验收标准，是维护插件的依据。
 
 ---
 
 ## 1. 背景与痛点
 
-Dispatch 主工程此前在 `Podfile` 的 `post_install` 中**手写硬编码**了 3 类「对 Pods 目录文件的文本替换」，用于修复第三方库的编译问题：
+某 iOS 主工程此前在 `Podfile` 的 `post_install` 中**手写硬编码**了 3 类「对 Pods 目录文件的文本替换」，用于修复第三方库的编译问题，例如：
 
-1. YYText 表达式修复（2 处字符串替换）
-2. AFNetworking 私有头引入修复（2 个文件）
-3. LFPhoneInfo 头文件引入修复（目录遍历替换）
+1. **表达式优先级修复**（2 处字符串替换）：C 语言中 `a < b < c` 实际按 `(a < b) < c` 求值，比较链结果错误，需补括号：
+
+   ```ruby
+   # Podfile post_install 中的硬编码写法
+   file = File.join(sandbox_root, 'Pods/SomePod/SomePod/Component/SomeView.m')
+   text = File.read(file)
+   text.gsub!('a < b < c', '(a < b) < c')
+   File.write(file, text)
+   ```
+
+2. **私有头引入修复**（2 个文件）：`#import <netinet6/in6.h>` 编译报找不到，需改为 `#include <sys/socket.h>`：
+
+   ```ruby
+   %w[SomeManager.m SomeSession.m].each do |name|
+     file = File.join(sandbox_root, "Pods/SomePod/SomePod/#{name}")
+     text = File.read(file)
+     text.gsub!('#import <netinet6/in6.h>', '#include <sys/socket.h>')
+     File.write(file, text)
+   end
+   ```
+
+3. **头文件引入方式修复**（目录遍历替换）：`#import <SomeDefine.h>` 在编译时找不到，需改为 `#import "SomeDefine.h"` 相对引入：
+
+   ```ruby
+   Dir.glob(File.join(sandbox_root, 'Pods/SomePod/**/*.{h,m}')).each do |file|
+     text = File.read(file)
+     if text.include?('#import <SomeDefine.h>')
+       text.gsub!('#import <SomeDefine.h>', '#import "SomeDefine.h"')
+       File.write(file, text)
+     end
+   end
+   ```
 
 **痛点**：
 - 逻辑散落在 Podfile 里，与业务配置耦合，每次 `pod install` 都执行但无法复用
@@ -37,7 +66,7 @@ Dispatch 主工程此前在 `Podfile` 的 `post_install` 中**手写硬编码**�
 ### 2.3 规则目标定位（六选一，均不指定为全局）
 | 方式 | 字段 | 路径基准 |
 |---|---|---|
-| Pod 模块 | `pod: 'YYText'` | `installer.sandbox.pod_dir(name)`，glob 相对该目录 |
+| Pod 模块 | `pod: 'SomePod'` | `installer.sandbox.pod_dir(name)`，glob 相对该目录 |
 | 相对目录 | `dir: 'Pods/SomePod'` | Podfile 目录 |
 | 绝对目录 | `dir: '/abs/path'` | 绝对路径 |
 | 相对文件 | `file: 'Pods/A/Foo.m'` | Podfile 目录 |
@@ -54,41 +83,41 @@ Dispatch 主工程此前在 `Podfile` 的 `post_install` 中**手写硬编码**�
 - **幂等**：`new_content == content` 则跳过写文件
 - **只读判断**：文件不存在 / glob 无匹配静默跳过
 - **权限**：写文件前 `FileUtils.chmod 0644`
-- **日志**：统一走 `Pod::UI.puts`，格式参照 `cocoapods-user-defined-build-types`（`🔥 [cocoapods-source-fix] ...` 蓝色）；实际替换打印 `✅ 已修复文件：<path>`；规则无匹配打印 `⏭️ 跳过（无匹配）`；结束打印 `finished patching source files (N file(s) fixed)`
+- **日志**：统一走 `Pod::UI.puts`，格式参照 `cocoapods-user-defined-build-types`（`🛠️ [cocoapods-source-fix] ...` 蓝色）；实际替换打印 `✅ 已修复文件：<path>`；规则无匹配打印 `⏭️ 跳过（无匹配）`；结束打印 `finished patching source files (N file(s) fixed)`
 - **编码**：`File.read` 直接读（与现有行为一致，UTF-8 兼容）
 
 ---
 
-## 3. 需迁移的现有规则（写入独立配置文件）
+## 3. 配置示例（写入独立配置文件）
 
-### 3.1 YYText（表达式修复）
+### 3.1 表达式优先级修复（单文件多组替换）
 ```yaml
-- name: YYText 表达式修复
-  pod: YYText
-  glob: 'YYText/Component/YYTextLayout.m'
+- name: 表达式优先级修复
+  pod: SomePod
+  glob: 'SomePod/Component/SomeView.m'
   pairs:
-    - from: 'fabs(left - point.y) < fabs(right - point.y) < (right ? prev : next)'
-      to:   '(fabs(left - point.y) < fabs(right - point.y)) == (right ? prev : next)'
-    - from: 'fabs(left - point.x) < fabs(right - point.x) < (right ? prev : next)'
-      to:   '(fabs(left - point.x) < fabs(right - point.x)) == (right ? prev : next)'
+    - from: 'a < b < c'
+      to:   '(a < b) < c'
+    - from: 'x < y < z'
+      to:   '(x < y) < z'
 ```
 
-### 3.2 AFNetworking（私有头修复）
+### 3.2 私有头引入修复（多文件 glob）
 ```yaml
-- name: AFNetworking 私有头修复
-  pod: AFNetworking
-  glob: 'AFNetworking/AF{NetworkReachabilityManager,HTTPSessionManager}.m'
+- name: 私有头引入修复
+  pod: SomePod
+  glob: 'SomePod/Some{Manager,Session}.m'
   from: '#import <netinet6/in6.h>'
   to:   '#include <sys/socket.h>'
 ```
 
-### 3.3 LFPhoneInfo（头文件引入方式修复）
+### 3.3 头文件引入方式修复（目录遍历）
 ```yaml
-- name: LFPhoneInfo 头引入方式修复
-  pod: LFPhoneInfo
+- name: 头文件引入方式修复
+  pod: SomePod
   glob: '**/*.{h,m,mm,swift}'
-  from: '#import <LFPhoneDefine.h>'
-  to:   '#import "LFPhoneDefine.h"'
+  from: '#import <SomeDefine.h>'
+  to:   '#import "SomeDefine.h"'
 ```
 
 > 迁移完成后，Podfile `post_install` 中对应三段硬编码代码可删除（保留 DEVELOPMENT_TEAM 等无关逻辑）。**当前阶段为验证插件，暂不改动 Podfile。**
@@ -103,16 +132,16 @@ Dispatch 主工程此前在 `Podfile` 的 `post_install` 中**手写硬编码**�
 
 ### 4.2 验证步骤（必须做）
 1. `pod install` 正常完成，无 error
-2. 终端能看到 `✅ 已修复文件：...` 且覆盖 YYText / AFNetworking / LFPhoneInfo 三类
+2. 终端能看到 `✅ 已修复文件：...` 且覆盖三类修复
 3. 检查产物：
-   - `Pods/LFPhoneInfo/LFPhoneInfo/UIDevice+LFDeviceInfo.h` 第 13 行为 `#import "LFPhoneDefine.h"`
-   - `Pods/AFNetworking/AFNetworking/AFHTTPSessionManager.m` 含 `#include <sys/socket.h>`
-   - `Pods/YYText/YYText/Component/YYTextLayout.m` 含 `== (right ? prev : next)`
+   - `Pods/SomePod/SomePod/SomeView.h` 第 13 行为 `#import "SomeDefine.h"`
+   - `Pods/SomePod/SomePod/SomeManager.m` 含 `#include <sys/socket.h>`
+   - `Pods/SomePod/SomePod/Component/SomeView.m` 含 `(a < b) < c`
 4. **连续跑两次 `pod install`**：第二次日志应显示跳过（幂等性验证）
-5. Xcode 编译通过（重点：不再报 LFPhoneInfo 的 `LFPhoneDefine.h` 找不到等）
+5. Xcode 编译通过（重点：不再报 `SomeDefine.h` 找不到等）
 
 ### 4.3 迁移收尾
-- 验证通过后，删除 Podfile `post_install` 中 YYText / AFNetworking / LFPhoneInfo 三段替换代码
+- 验证通过后，删除 Podfile `post_install` 中三段替换代码
 - 保留 `post_install` 中与替换无关的逻辑（DEVELOPMENT_TEAM 设置、预编译宏等）
 
 ---
@@ -126,7 +155,7 @@ Dispatch 主工程此前在 `Podfile` 的 `post_install` 中**手写硬编码**�
       - 单组 `from/to` 与多组 `pairs`，字面量 + 正则（`regex: true`）
       - 幂等 + 日志输出 + chmod 0644
 - [ ] 3. 编写测试（可选但推荐）：用 fixture 目录模拟 Pods 结构跑替换逻辑，断言替换结果与幂等性
-- [ ] 4. 与 Dispatch 工程集成（4.1），跑 `pod install` 验证（4.2 全部步骤）
+- [ ] 4. 与目标主工程集成（4.1），跑 `pod install` 验证（4.2 全部步骤）
 - [ ] 5. 迁移 Podfile：删除 post_install 中三段替换代码（验证通过后执行，4.3）
 - [ ] 6. 最后回归：`pod install` 连续 2 次 + Xcode 编译
 
