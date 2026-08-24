@@ -1,0 +1,86 @@
+# ============================================================
+# cocoapods-source-fix 配置文件示例
+#
+# 默认位置：Podfile 同目录下的 cocoapods-source-fix.yml
+# 也可用环境变量指定：COCOAPODS_SOURCE_FIX_CONFIG=/path/to/config.yml pod install
+#
+# 目标定位（每条规则六选一，均不指定则为全局替换）：
+#   pod:  '模块名'            → 定位 Pod 目录（installer.sandbox.pod_dir），glob 相对该目录
+#   dir:  '路径'              → 目录；绝对路径直接用，相对路径以 Podfile 目录为基准
+#   file: '路径'              → 文件；绝对路径直接用，相对路径以 Podfile 目录为基准
+#   （无以上字段）            → 全局；glob 以 Podfile 目录为基准（如 'Pods/**/*.{h,m}'）
+#
+# 替换内容（from/to 与 pairs 至少提供一组；均可选 regex: true 走正则）：
+#   from/to  单组字面量替换
+#   pairs    多组替换 [{from, to, regex?}]
+#
+# 排除（可选）：exclude 支持字符串或数组，glob 模式，基准与 glob 相同
+#   （pod → Pod 目录；dir → 目标目录；全局 → Podfile 目录），命中文件不修复。
+#   以 '/**' 结尾（或 '**'）表示排除整个目录树。
+#
+# 详细日志（可选）：verbose: true 时逐文件输出「已是最新」「已排除」，
+#   默认 false（只输出规则级汇总）。也可用环境变量 COCOAPODS_SOURCE_FIX_VERBOSE=1 覆盖。
+#
+# 其他字段：name（日志标签，可选）、glob（文件匹配，目录/全局必填）、enabled（默认 true）
+# ============================================================
+
+rules:
+  # ---------- 示例 1：指定 Pod 模块 + 单文件多组替换（迁移自 YYText 表达式修复） ----------
+  - name: YYText 表达式修复
+    pod: YYText
+    glob: 'YYText/Component/YYTextLayout.m'
+    pairs:
+      - from: 'fabs(left - point.y) < fabs(right - point.y) < (right ? prev : next)'
+        to:   '(fabs(left - point.y) < fabs(right - point.y)) == (right ? prev : next)'
+      - from: 'fabs(left - point.x) < fabs(right - point.x) < (right ? prev : next)'
+        to:   '(fabs(left - point.x) < fabs(right - point.x)) == (right ? prev : next)'
+
+  # ---------- 示例 2：指定 Pod 模块 + 多文件 glob（迁移自 AFNetworking 私有头修复） ----------
+  - name: AFNetworking 私有头修复
+    pod: AFNetworking
+    glob: 'AFNetworking/AF{NetworkReachabilityManager,HTTPSessionManager}.m'
+    from: '#import <netinet6/in6.h>'
+    to:   '#include <sys/socket.h>'
+
+  # ---------- 示例 3：指定 Pod 模块 + 目录遍历（迁移自 LFPhoneInfo 头引入修复） ----------
+  - name: LFPhoneInfo 头引入方式修复
+    pod: LFPhoneInfo
+    glob: '**/*.{h,m,mm,swift}'
+    from: '#import <LFPhoneDefine.h>'
+    to:   '#import "LFPhoneDefine.h"'
+    # 排除示例：不修复 LFPhoneInfo.h 自身（exclude 也可传数组）
+    # exclude: 'LFPhoneInfo/LFPhoneInfo.h'
+    # 排除整棵目录树：
+    # exclude: 'LFPhoneInfo/Private/**'
+
+  # ---------- 示例 4：相对 Podfile 文件的目录 ----------
+  # - name: 相对目录示例
+  #   dir: 'Pods/SomePod'
+  #   glob: '**/*.{h,m}'
+  #   from: 'OLD_TEXT'
+  #   to: 'NEW_TEXT'
+
+  # ---------- 示例 5：绝对路径目录 ----------
+  # - name: 绝对目录示例
+  #   dir: '/Users/xxx/Source/Pods/SomePod'
+  #   glob: '**/*.m'
+  #   from: 'OLD_TEXT'
+  #   to: 'NEW_TEXT'
+
+  # ---------- 示例 6：相对 Podfile 文件的文件 ----------
+  # - name: 相对文件示例
+  #   file: 'Pods/SomePod/SomePod/Foo.m'
+  #   from: 'OLD_TEXT'
+  #   to: 'NEW_TEXT'
+
+  # ---------- 示例 7：绝对文件 ----------
+  # - name: 绝对文件示例
+  #   file: '/Users/xxx/Source/Pods/SomePod/SomePod/Foo.m'
+  #   from: 'OLD_TEXT'
+  #   to: 'NEW_TEXT'
+
+  # ---------- 示例 8：不指定目标（全局替换，glob 相对 Podfile 目录） ----------
+  # - name: 全局替换示例
+  #   glob: 'Pods/**/*.{h,m}'
+  #   from: 'OLD_TEXT'
+  #   to: 'NEW_TEXT'
